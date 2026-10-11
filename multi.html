@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>오네이트 익스프레스 · 멀티에이전트 수사</title>
+<style>
+:root{color-scheme:dark;font-family:'Malgun Gothic',system-ui,sans-serif;background:#101a21;color:#f7eedc}body{max-width:1200px;margin:auto;padding:24px;line-height:1.6}h1{font-size:24px}h2{font-size:18px;color:#e0b976}a{color:#e0b976}button,input,select{font:inherit;background:#243740;color:inherit;border:1px solid #506a72;border-radius:6px;padding:8px}button{cursor:pointer}button:disabled{opacity:.45}label{display:inline-block;margin:6px}input{max-width:180px}section{background:#192932;border:1px solid #39515a;border-radius:10px;padding:18px;margin-top:16px}.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{border:1px solid #39515a;padding:12px;margin:8px 0;border-radius:6px}table{width:100%;border-collapse:collapse}td,th{text-align:left;border-bottom:1px solid #39515a;padding:8px}#events{max-height:280px;overflow:auto}#error{color:#f4b1a5}small{color:#c6d5d5}#private{white-space:pre-wrap;overflow-wrap:anywhere}button.primary{background:#e0b976;color:#101a21}@media(max-width:750px){.grid{grid-template-columns:1fr}body{padding:12px}}
+</style></head><body>
+<a href="/">← 1인용 플레이</a><h1>멀티에이전트 수사 관제</h1>
+<p>플레이어들이 독립적으로 조사하고 증거를 공유합니다. GM은 공유 증거와 작업 원장을 관리합니다.</p>
+<section><label>인원 <input id="n" type="number" min="1" max="12" value="3"></label><label>사건 seed <input id="seed" type="number" min="0" max="4294967295" value="42"></label>
+<button id="create" class="primary">새 사건</button> <button id="run" disabled>자동 수사 시작 / 재개</button> <button id="pause" disabled>일시 정지</button> <button id="export" disabled>공유 기록 저장</button>
+<p id="status" aria-live="polite">새 사건을 생성하세요.</p><p id="error" role="alert"></p>
+<details><summary>LLM 연결 (선택)</summary><p>키가 없으면 동일한 구조의 기본 정책으로 실행합니다. 연결 시 각 플레이어가 자신의 허용된 관찰을 바탕으로 행동을 선택합니다.</p>
+<label>제공자 <select id="provider"><option value="openai">OpenAI</option><option value="console">OpenCode Console</option><option value="zen">OpenCode Zen</option></select></label>
+<label>키 <input id="key" type="password" autocomplete="off"></label><label>모델 <input id="model" value="gpt-6-luna"></label>
+<label>방식 <select id="protocol"><option value="responses">Responses</option><option value="chat">Chat Completions</option></select></label>
+<p><small>키는 저장하지 않습니다. 개인 정보는 해당 플레이어의 모델 요청에만 포함됩니다.</small></p></details></section>
+<div class="grid"><section><h2>플레이어와 장애 주입</h2><div id="agents"></div><p><small>장애 시 개인 기억을 다른 플레이어에게 전달하지 않습니다. 완료된 공유 결과를 보존하고 미완료 작업을 재배정합니다. 0명이면 사람의 개입을 기다립니다.</small></p></section>
+<section><h2>평가 지표</h2><div id="metrics"></div><h2>남은 후보</h2><div id="board"></div></section></div>
+<section><h2>공유 작업 원장</h2><table><thead><tr><th>장소</th><th>상태</th><th>담당자</th><th>세대</th><th>공유 증거</th></tr></thead><tbody id="tasks"></tbody></table></section>
+<div class="grid"><section><h2>공유 증거 <span id="count">0</span></h2><div id="evidence"></div></section><section><h2>엔진 완료 이벤트</h2><div id="events"></div><h2>소유권 변경</h2><div id="ownership"></div></section></div>
+<section><h2>개별 플레이어 관찰</h2><p>개발용 관찰 도구입니다. 선택한 플레이어의 권한으로 개인 목표·신념·의사결정 기록을 조회합니다. 이 정보는 GM 공유 기록에 포함되지 않습니다.</p><select id="player"></select> <button id="inspect" disabled>개인 관찰 조회</button><pre id="private"></pre></section>
+<script>
+const $=id=>document.getElementById(id);let credentials=null,inflight=false;
+try{credentials=JSON.parse(sessionStorage.getItem('ornate.multi')||'null')}catch{}
+const text=(tag,value)=>{const e=document.createElement(tag);e.textContent=value;return e};
+async function call(path,data={}){const r=await fetch('/multi/'+path,{method:'POST',headers:{'Content-Type':'application/json','X-GM-Client':'local'},body:JSON.stringify({id:credentials?.id,token:credentials?.gm_token,...data})});const v=await r.json();if(!r.ok)throw Error(v.error);return v}
+async function command(path,data={}){try{$('error').textContent='';const v=await call(path,data);render(v)}catch(e){$('error').textContent=e.message}}
+function render(v){$('status').textContent=`${v.status} · 사이클 ${v.cycle}${v.ended?(v.won?' · 사건 해결':' · 미제 종료'):''}`;for(const id of ['run','pause','export','inspect'])$(id).disabled=false;$('run').disabled=v.ended;$('pause').disabled=v.status!=='running';
+$('agents').replaceChildren();const old=$('player').value;$('player').replaceChildren();for(const a of v.agents){const c=text('div',`${a.id} · ${a.job} · ${a.trait} · ${a.status}`);c.className='card';const b=text('button','장애 주입');b.disabled=a.status!=='active'||v.ended;b.onclick=()=>command('fail',{agent_id:a.id});c.append(document.createElement('br'),b);$('agents').append(c);const o=text('option',a.id);o.value=a.id;$('player').append(o)}if(old)$('player').value=old;
+$('tasks').replaceChildren();for(const t of v.tasks){const row=document.createElement('tr');for(const value of [v.places[t.room],t.status,t.owner||'—',t.generation,t.evidence_ids.length])row.append(text('td',value));$('tasks').append(row)}
+$('evidence').replaceChildren();$('count').textContent=v.shared.length;for(const c of v.shared)$('evidence').append(text('p',`${c.id} · ${c.text}`));
+$('metrics').replaceChildren();const m=v.metrics;for(const [label,value] of [['활성 인원',m.active_agents],['완료 작업',m.completed_tasks],['행동 수',m.actions],['재배정',m.reassignments],['공유 / 부분 공유 / 보류',`${m.sharing} / ${m.partial_sharing} / ${m.withholding}`],['평균 행동 지연(초)',(m.latency_total/Math.max(1,m.actions)).toFixed(3)],['해결 시간(초)',m.time_to_solution?.toFixed(2)||'—']])$('metrics').append(text('p',`${label}: ${value}`));
+$('board').replaceChildren();for(const [k,items] of Object.entries(v.board))$('board').append(text('p',`${{suspect:'범인',weapon:'흉기',place:'장소'}[k]}: ${items.filter(x=>!x.excluded).map(x=>x.name).join(', ')}`));
+$('events').replaceChildren();for(const e of v.events.slice(-30).reverse())$('events').append(text('p',`#${e.seq} ${e.agent_id} · ${e.task_id||'소통'} · ${e.status} · 공유 [${e.shared_evidence_ids.join(', ')}]`));
+$('ownership').replaceChildren();for(const o of v.ownership.slice(-12).reverse())$('ownership').append(text('p',`${o.task_id} → ${o.owner||'해제'} · ${o.reason} · 세대 ${o.generation}`));}
+$('create').onclick=async()=>{try{credentials=await call('start',{n:+$('n').value,seed:+$('seed').value});sessionStorage.setItem('ornate.multi',JSON.stringify(credentials));$('private').textContent='';render(credentials.state)}catch(e){$('error').textContent=e.message}};
+$('run').onclick=()=>command('run',{key:$('key').value,model:$('model').value,protocol:$('protocol').value,connection:$('provider').value});$('pause').onclick=()=>command('pause');
+$('inspect').onclick=async()=>{try{const aid=$('player').value;const v=await call('observe',{agent_id:aid,token:credentials.agent_credentials[aid]});$('private').textContent=JSON.stringify(v.self,null,2)}catch(e){$('error').textContent=e.message}};
+$('export').onclick=async()=>{try{const v=await call('export');const url=URL.createObjectURL(new Blob([JSON.stringify(v,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='ornate-multi-shared.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}catch(e){$('error').textContent=e.message}};
+setInterval(async()=>{if(!credentials||inflight)return;inflight=true;try{render(await call('observe'))}catch(e){$('error').textContent=e.message}finally{inflight=false}},1000);if(credentials)command('observe');
+</script></body></html>

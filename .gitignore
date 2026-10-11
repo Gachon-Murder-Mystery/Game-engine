@@ -2,3 +2,10 @@ __pycache__/
 data/
 key.txt
 start_windows.bat
+.gitignore
+internal_docs/
+.venv/
+venv/
+.pytest_cache/
+.playwright/
+node_modules/
