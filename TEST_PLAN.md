@@ -12,6 +12,10 @@
 | 행동 계약 | `test_multi.py` | 동일 행동 ID 재실행 방지, 변경 요청 거부, 실패한 담당자의 지연 결과 거부, 부분/전체 공유·비공개 메시지 범위 유지 |
 | 장애 복구 | `test_multi.py` | 실행 중 3→2→1명 감소 시 기존 공유 증거 보존, 미완료 작업 재배정, 최종 해결; 0명일 때 사람 개입 대기 |
 | 비동기 진행 | `test_multi.py` | 한 플레이어가 응답 대기 중이어도 다른 플레이어가 두 번 이상 행동 가능 |
+| GM 에이전트 장애 | `test_coordination.py` | GM 예외·무응답을 엔진이 감지, 이전 GM NPC 전환, 후임 GM으로 최종 해결 |
+| 단일 컨트롤 타워 | `test_coordination.py` | 동시 선출에서 한 후임만 확정, 임기·token·lease 검증, 이전 GM의 지연 명령 및 cached 명령 거부 |
+| GM 감독·인계 | `test_coordination.py` | 후임이 소유 ID 원장과 공유 상태를 복원하며 개인 본문·목표·정답은 읽지 못함 |
+| 런타임 재시작 | `test_coordination.py` | 이전 실행자 기한 만료 후 새 임기 선출, 저장된 완료 결과를 보존하고 자동 해결 |
 | HTTP 통합·영속성 | `test_multi.py` | 사건 생성·백그라운드 실행·관찰·개인 조회·공개 내보내기 성공, SQLite 저장 복원 |
 | 브라우저 E2E | `python tests/run_browser.py` | 화면 이동·생성·장애 주입·1명 해결·개인 조회·공개 다운로드·새로고침 복원 성공, 모바일 가로 넘침/JS 오류 없음 |
 | Git 변경 범위 | `git diff --check`, `git check-ignore`, staged 목록 검토 | 공백 오류 없음; 키·DB·내부 문서·설치 환경 미포함 |
@@ -41,6 +45,6 @@ npm --prefix .playwright install node@22 playwright --no-audit --no-fund
 
 ## 실행 결과 (2026-10-12)
 
-- `python -m unittest discover -v`: 24개 모두 통과.
-- `python tests/run_browser.py`: 화면 이동, 사건 생성, 두 명 장애, 작업 재배정, 한 명으로 해결, 개인 조회, 안전한 공개 내보내기, 새로고침 복원, 모바일 레이아웃 및 JS 오류 검사 통과.
+- `python -m unittest discover -v`: 36개 모두 통과 (기존 24개 + GM 승계/권한/종료/복구 12개).
+- `python tests/run_browser.py`: 화면 이동, 사건 생성, GM 승계·NPC 전환·단일 지휘자, 두 명 장애, 작업 재배정, 한 명으로 해결, 개인 조회, 안전한 공개 내보내기, 새로고침 복원, 모바일 레이아웃 및 JS 오류 검사 통과.
 - 실제 유료 API 호출은 미실행이며, 이번 반영의 필수 통과 범위에서 제외했습니다.

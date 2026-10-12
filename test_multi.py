@@ -6,6 +6,7 @@ import time
 import urllib.request
 import urllib.error
 import unittest
+from contextlib import contextmanager
 from unittest.mock import patch
 
 import multi
@@ -112,11 +113,13 @@ class MultiTests(unittest.TestCase):
                     self.assertTrue(blocked.wait(2))
                     # Wait for the second player to execute two actions while the first is held.
                     advanced=threading.Event()
-                    original_save=store.save
-                    def save(state):
-                        original_save(state)
-                        if len(state['agents']['agent-2']['decisions'])>=2:advanced.set()
-                    with patch.object(store,'save',side_effect=save):
+                    original_transaction=store.transaction
+                    @contextmanager
+                    def transaction(game_id):
+                        with original_transaction(game_id) as state:
+                            yield state
+                            if len(state['agents']['agent-2']['decisions'])>=2:advanced.set()
+                    with patch.object(store,'transaction',side_effect=transaction):
                         self.assertTrue(advanced.wait(3))
                     with store.for_game(g['id']):
                         state=store.get(g['id']);multi.fail(state,'agent-1');store.save(state)
@@ -139,17 +142,19 @@ class MultiTests(unittest.TestCase):
     def test_live_degradation_preserves_results_and_reaches_ending(self):
         with tempfile.TemporaryDirectory() as d:
             store=Store(d+'/state.sqlite');g=multi.create(3,19);store.save(g)
-            runtime=multi.Runtime(store);original=store.save;failed=[];preserved=set()
-            def save(state):
-                if len(state['shared'])>=3 and not failed:
-                    preserved.update(c['id'] for c in state['shared'])
-                    multi.fail(state,'agent-1');failed.append('agent-1')
-                if len(state['shared'])>=8 and len(failed)==1:
-                    preserved.update(c['id'] for c in state['shared'])
-                    multi.fail(state,'agent-2');failed.append('agent-2')
-                original(state)
+            runtime=multi.Runtime(store);original=store.transaction;failed=[];preserved=set()
+            @contextmanager
+            def transaction(game_id):
+                with original(game_id) as state:
+                    yield state
+                    if len(state['shared'])>=3 and not failed:
+                        preserved.update(c['id'] for c in state['shared'])
+                        multi.fail(state,'agent-1');failed.append('agent-1')
+                    if len(state['shared'])>=8 and len(failed)==1:
+                        preserved.update(c['id'] for c in state['shared'])
+                        multi.fail(state,'agent-2');failed.append('agent-2')
             try:
-                with patch.object(store,'save',side_effect=save):runtime.run(g['id'],cycles=400)
+                with patch.object(store,'transaction',side_effect=transaction):runtime.run(g['id'],cycles=400)
             finally:runtime.close()
             final=store.get(g['id'])
             self.assertTrue(final['won']);self.assertEqual(len(failed),2)
@@ -174,6 +179,16 @@ class MultiTests(unittest.TestCase):
                 wrong=dict(gm,token=created['agent_credentials']['agent-1'])
                 with self.assertRaises(urllib.error.HTTPError) as error:post('/multi/export',wrong)
                 self.assertEqual(error.exception.code,400)
+                old_controller=post('/multi/controller',gm)
+                supervised=post('/multi/gm/observe',dict(id=created['id'],**old_controller))
+                self.assertIn('supervision',supervised)
+                replacement=post('/multi/fail-gm',dict(gm,term=old_controller['term']))
+                self.assertEqual(replacement['controller']['term'],2)
+                with self.assertRaises(urllib.error.HTTPError):
+                    post('/multi/gm/command',{'id':created['id'],'request':dict(old_controller,
+                         command_id='stale-end',operation='END')})
+                self.assertFalse(post('/multi/observe',gm)['ended'])
+                self.assertNotIn('supervision',post('/multi/export',gm))
                 multi_state=post('/multi/run',gm)
                 for _ in range(150):
                     multi_state=post('/multi/observe',gm)

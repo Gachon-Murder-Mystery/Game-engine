@@ -14,6 +14,9 @@ const fs = require('node:fs');
     await page.goto(process.env.TEST_BASE_URL || 'http://127.0.0.1:8765/');
     await page.getByRole('link', { name: '멀티에이전트 수사 관제 →' }).click();
     await page.locator('#create').click();
+    await page.locator('#failGM').click();
+    await page.waitForFunction(() => document.querySelector('#controller').textContent.includes('gm-2'));
+    assert.ok((await page.locator('#gmHistory').textContent()).includes('NPC'));
     for (const index of [0, 1]) {
       await page.locator('#agents .card').nth(index).getByRole('button').click();
       await page.waitForFunction(i => document.querySelectorAll('#agents .card')[i]?.textContent.includes('failed'), index);
@@ -33,6 +36,8 @@ const fs = require('node:fs');
     assert.equal(record.shared.length, 25);
     assert.equal(record.metrics.active_agents, 1);
     assert.ok(record.metrics.reassignments >= 2);
+    assert.ok(record.metrics.gm_failovers >= 1);
+    assert.equal(record.gm_agents.filter(gm => gm.status === 'active').length, 1);
     for (const forbidden of ['truth', 'gm_token', 'self', 'agent_credentials', 'all_clues']) {
       assert.equal(record[forbidden], undefined);
     }
@@ -42,7 +47,7 @@ const fs = require('node:fs');
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true);
     await page.screenshot({ path: '.playwright/mobile.png', fullPage: true });
     assert.deepEqual(errors, []);
-    console.log('PASS: navigation, create, 3→1 failures, reassignment, solution, private observe, safe export, reload, mobile, no JS errors');
+    console.log('PASS: navigation, create, GM succession/NPC/single leader, 3→1 failures, reassignment, solution, private observe, safe export, reload, mobile, no JS errors');
   } finally {
     await browser.close();
   }

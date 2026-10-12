@@ -5,13 +5,14 @@ import json
 import sqlite3
 import threading
 import webbrowser
-from contextlib import closing
+from contextlib import closing, contextmanager
 from pathlib import Path
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 from engine import new_game, public, add, apply, local_intent, SUSPECTS, WEAPONS, PLACES, JOBS
 from llm import Zen
 import multi
+import coordination
 
 ROOT=Path(__file__).resolve().parent
 
@@ -29,6 +30,28 @@ class Store:
             with db:db.execute('INSERT OR REPLACE INTO games VALUES (?,?)',(g['id'],json.dumps(g,ensure_ascii=False)))
     def for_game(self,id):
         with self.lock:return self.game_locks.setdefault(id,threading.Lock())
+
+    def running_multi(self):
+        with closing(sqlite3.connect(self.path)) as db:
+            rows=db.execute('SELECT id,state FROM games').fetchall()
+        return [id for id,raw in rows if (state:=json.loads(raw)).get('kind')=='multi'
+                and state.get('status')=='running' and not state.get('ended')]
+
+    @contextmanager
+    def transaction(self,id):
+        """Serialize commits across threads AND processes sharing the SQLite DB."""
+        with self.for_game(id), closing(sqlite3.connect(self.path,timeout=10)) as db:
+            try:
+                db.execute('BEGIN IMMEDIATE')
+                row=db.execute('SELECT state FROM games WHERE id=?',(id,)).fetchone()
+                if not row:raise ValueError('사건을 찾지 못했습니다.')
+                state=json.loads(row[0])
+                yield state
+                db.execute('UPDATE games SET state=? WHERE id=?',(json.dumps(state,ensure_ascii=False),id))
+                db.commit()
+            except BaseException:
+                db.rollback()
+                raise
 
 class Handler(BaseHTTPRequestHandler):
     def send(self,status,value,ctype='application/json'):
@@ -119,9 +142,9 @@ class Handler(BaseHTTPRequestHandler):
                            'state':multi.view(g)});return
         game_id=d.get('id')
         if not isinstance(game_id,str) or len(game_id)>100:raise ValueError('사건 ID를 확인하세요.')
-        with self.server.store.for_game(game_id):
-            g=self.server.store.get(game_id)
+        with self.server.store.transaction(game_id) as g:
             if g.get('kind')!='multi':raise ValueError('멀티에이전트 사건이 아닙니다.')
+            coordination.initialize(g)
             aid=d.get('agent_id')
             if self.path=='/multi/action':
                 if not isinstance(aid,str):raise ValueError('agent_id가 필요합니다.')
@@ -129,33 +152,50 @@ class Handler(BaseHTTPRequestHandler):
                 request=d.get('request',{})
                 if not isinstance(request,dict):raise ValueError('행동 요청 형식을 확인하세요.')
                 result=multi.execute(g,request | {'agent_id':aid})
-                self.server.store.save(g);self.send(200,result);return
-            if self.path=='/multi/observe' and aid:
+                response=result
+            elif self.path in ('/multi/gm/observe','/multi/gm/command'):
+                if self.path=='/multi/gm/observe':
+                    coordination.verify(g,d)
+                    response=coordination.observation(g)
+                else:
+                    request=d.get('request')
+                    if not isinstance(request,dict):raise ValueError('GM 명령 형식을 확인하세요.')
+                    response=coordination.command(g,request)
+            elif self.path=='/multi/observe' and aid:
                 multi.authorize(g,d.get('token'),aid)
-                self.send(200,multi.view(g,aid));return
-            multi.authorize(g,d.get('token'))
-            if self.path in ('/multi/observe','/multi/export'):
-                self.send(200,multi.view(g));return
-            if self.path=='/multi/fail':
-                multi.fail(g,aid);self.server.store.save(g)
-            elif self.path=='/multi/pause':
-                g['status']='paused';self.server.store.save(g)
-            elif self.path=='/multi/run':
-                key=d.get('key','');model=d.get('model','gpt-6-luna')
-                if not isinstance(key,str) or len(key)>500 or not isinstance(model,str) or len(model)>100:
-                    raise ValueError('API 설정을 확인하세요.')
-                gateway=Zen(key,model,d.get('protocol','responses'),d.get('connection','openai'),g['id'])
-                if not g['ended']:
-                    g['status']='ready';self.server.store.save(g)
-                    self.server.runtime.start(game_id,gateway)
-            else:raise ValueError('알 수 없는 멀티에이전트 명령입니다.')
-            self.send(200,multi.view(g))
+                response=multi.view(g,aid)
+            else:
+                multi.authorize(g,d.get('token'))  # Human operator, not a GM actor's capability.
+                if self.path in ('/multi/observe','/multi/export'):
+                    pass
+                elif self.path=='/multi/controller':
+                    response=coordination.credentials(g)
+                elif self.path=='/multi/fail':
+                    multi.fail(g,aid)
+                elif self.path=='/multi/fail-gm':
+                    term=d.get('term')
+                    if type(term) is not int:raise ValueError('장애 대상 GM 임기를 지정하세요.')
+                    coordination.failover(g,term,'injected_gm_failure',lease=self.server.runtime.gm_timeout)
+                elif self.path=='/multi/pause':
+                    g['status']='paused'
+                elif self.path=='/multi/run':
+                    key=d.get('key','');model=d.get('model','gpt-6-luna')
+                    if not isinstance(key,str) or len(key)>500 or not isinstance(model,str) or len(model)>100:
+                        raise ValueError('API 설정을 확인하세요.')
+                    gateway=Zen(key,model,d.get('protocol','responses'),d.get('connection','openai'),g['id'])
+                    if not g['ended']:
+                        g['status']='ready'
+                        self.server.runtime.start(game_id,gateway)
+                else:raise ValueError('알 수 없는 멀티에이전트 명령입니다.')
+                if self.path!='/multi/controller':response=multi.view(g)
+        self.send(200,response)
 
 def main():
     p=argparse.ArgumentParser();p.add_argument('--port',type=int,default=8765);p.add_argument('--no-browser',action='store_true');p.add_argument('--data',default=str(ROOT/'data'/'games.sqlite3'));args=p.parse_args()
     Path(args.data).parent.mkdir(parents=True,exist_ok=True)
     server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler);server.store=Store(args.data)
     server.runtime=multi.Runtime(server.store)
+    server.runtime.recover()
     url=f'http://127.0.0.1:{args.port}/';print('오네이트 익스프레스 GM:',url,'(종료: Ctrl+C)',flush=True)
     if not args.no_browser:threading.Timer(.5,lambda:webbrowser.open(url)).start()
     try:server.serve_forever()
@@ -164,8 +204,7 @@ def main():
         with server.runtime.jobs_lock:
             ids=list(server.runtime.running)
         for game_id in ids:
-            with server.store.for_game(game_id):
-                g=server.store.get(game_id)
-                if not g['ended']:g['status']='paused';server.store.save(g)
+            with server.store.transaction(game_id) as g:
+                if not g['ended']:g['status']='paused'
         server.runtime.close();server.server_close()
 if __name__=='__main__':main()

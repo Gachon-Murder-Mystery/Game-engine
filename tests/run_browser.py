@@ -33,11 +33,9 @@ def main():
             server.shutdown()
             thread.join()
             for game_id in list(server.runtime.running):
-                with server.store.for_game(game_id):
-                    state = server.store.get(game_id)
+                with server.store.transaction(game_id) as state:
                     if not state['ended']:
                         state['status'] = 'paused'
-                        server.store.save(state)
             server.runtime.close()
             server.server_close()
     return result.returncode

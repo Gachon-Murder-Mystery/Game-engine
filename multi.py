@@ -10,10 +10,11 @@ import math
 import random
 import secrets
 import time
-from concurrent.futures import ThreadPoolExecutor, wait, FIRST_COMPLETED
+from concurrent.futures import ThreadPoolExecutor, Future, wait, FIRST_COMPLETED
 import threading
 
 from engine import new_game, JOBS, CAT, PLACES
+import coordination
 
 TRAITS = ['협력적', '신중함', '독립적', '경쟁적']
 GOALS = ['protect_secret', 'prove_innocence', 'steal_vault']
@@ -41,6 +42,7 @@ def create(count=3, seed=0):
     for i in range(count):
         aid = f'agent-{i+1}'
         agents[aid] = {'id': aid, 'job': rng.choice(JOBS), 'trait': rng.choice(TRAITS),
+                       'object_type':'agent','life_state':'alive',
                        'goal': rng.choice(GOALS), 'status': 'active', 'heartbeat': time.time(),
                        'private': [], 'belief': {}, 'decisions': [], 'withheld': [],
                        'goal_achieved': False, 'token': secrets.token_urlsafe(32)}
@@ -55,6 +57,7 @@ def create(count=3, seed=0):
             'metrics': {'reassignments': 0, 'actions': 0, 'latency_total': 0,
                         'sharing': 0, 'partial_sharing': 0, 'withholding': 0,
                         'requests': 0, 'verification': 0, 'challenges': 0}}
+    coordination.initialize(g)
     allocate(g)
     return g
 
@@ -79,9 +82,15 @@ def view(g, agent_id=None):
               ('id', 'seed', 'tasks', 'shared', 'events', 'messages', 'ownership',
                'ended', 'won', 'cycle', 'status')}
     result['agents'] = [{'id': a['id'], 'job': a['job'], 'trait': a['trait'],
-                         'status': a['status']} for a in g['agents'].values()]
+                         'status': a['status'],'object_type':a.get('object_type','agent'),
+                         'life_state':a.get('life_state','alive')} for a in g['agents'].values()]
     result['board'] = board(g['shared'])
     result['places'] = PLACES
+    coordination.initialize(g)
+    result['controller']=copy.deepcopy(g['controller'])
+    result['gm_agents']=[{k:copy.deepcopy(a[k]) for k in
+                         ('id','term','status','heartbeat','lease_until','event_cursor')}
+                        for a in g['gm_agents']]
     result['metrics'] = copy.deepcopy(g['metrics'])
     result['metrics']['active_agents'] = sum(a['status'] == 'active' for a in g['agents'].values())
     result['metrics']['completed_tasks'] = sum(t['status'] == 'completed' for t in g['tasks'])
@@ -112,19 +121,16 @@ def refresh(g):
 
 
 def allocate(g):
+    """Bootstrap/test adapter for the GM's offline policy, with engine fencing."""
     refresh(g)
     active = [a['id'] for a in g['agents'].values() if a['status'] == 'active']
     if not active:
         g['status'] = 'waiting_for_human'
         return
-    for aid in active:
-        if any(t['owner'] == aid and t['status'] == 'assigned' for t in g['tasks']):
-            continue
-        task = next((t for t in g['tasks'] if t['status'] == 'pending'), None)
-        if task:
-            task.update(status='assigned', owner=aid, generation=task['generation']+1)
-            g['ownership'].append({'task_id': task['id'], 'owner': aid,
-                                   'generation': task['generation'], 'reason': 'assignment'})
+    coordination.initialize(g)
+    proposal=coordination.plan(coordination.observation(g))
+    coordination.command(g,proposal | coordination.credentials(g) |
+                          {'command_id':secrets.token_urlsafe(18)})
 
 
 def fail(g, aid, reason='injected_failure'):
@@ -134,6 +140,7 @@ def fail(g, aid, reason='injected_failure'):
     if a['status'] == 'failed':
         return
     a['status'] = 'failed'
+    a['object_type']='npc'
     g['events'].append({'seq': len(g['events'])+1, 'game_id': g['id'],
                          'action_id': None, 'agent_id': aid, 'task_id': None,
                          'status': 'failed', 'reason': reason, 'shared_evidence_ids': [],
@@ -144,7 +151,9 @@ def fail(g, aid, reason='injected_failure'):
             g['metrics']['reassignments'] += 1
             g['ownership'].append({'task_id': task['id'], 'owner': None,
                                    'generation': task['generation'], 'reason': reason})
-    allocate(g)
+    refresh(g)
+    if not any(a['status']=='active' for a in g['agents'].values()):
+        g['status']='waiting_for_human'
 
 
 def execute(g, request):
@@ -320,13 +329,29 @@ def decide(observation, gateway=None):
 
 
 class Runtime:
-    """Workers perform reasoning outside the DB/game lock; only commits serialize."""
-    def __init__(self, store):
+    """Engine watchdog schedules independent GM/player actors; it is not a GM.
+
+    GM decisions happen on isolated daemon threads. A failed/stuck GM cannot stop
+    this watchdog or another GM's execution. SQLite leases fence other runtimes.
+    """
+    def __init__(self, store, gm_timeout=40, player_timeout=40):
         self.store = store
         self.pool = ThreadPoolExecutor(max_workers=12, thread_name_prefix='player')
-        self.controllers = ThreadPoolExecutor(max_workers=4, thread_name_prefix='supervisor')
+        self.controllers = ThreadPoolExecutor(max_workers=4, thread_name_prefix='engine-watchdog')
         self.running = {}
         self.jobs_lock = threading.Lock()
+        self.gm_timeout=gm_timeout
+        self.player_timeout=player_timeout
+        self.stop=threading.Event()
+
+    def spawn_gm(self,game_id,term,gateway,runner_id):
+        future=Future()
+        def target():
+            if not future.set_running_or_notify_cancel():return
+            try:future.set_result(self.gm_worker(game_id,term,gateway,runner_id))
+            except BaseException as exc:future.set_exception(exc)
+        threading.Thread(target=target,name=f'gm-{term}',daemon=True).start()
+        return future
 
     def start(self, game_id, gateway=None, cycles=200):
         with self.jobs_lock:
@@ -334,16 +359,36 @@ class Runtime:
                 return
             self.running[game_id] = self.controllers.submit(self.run, game_id, gateway, cycles)
 
-    def worker(self, game_id, aid, gateway):
+    def gm_worker(self,game_id,term,gateway,runner_id):
+        with self.store.transaction(game_id) as g:
+            if (coordination.current(g)['term']!=term or g['ended'] or
+                not g['engine_runner'] or g['engine_runner']['id']!=runner_id):return
+            observation=coordination.observation(g)
+            credential=coordination.credentials(g)
+        proposal=coordination.plan(observation,gateway)
+        request=proposal | credential | {'command_id':secrets.token_urlsafe(18)}
+        with self.store.transaction(game_id) as g:
+            if (not g['engine_runner'] or g['engine_runner']['id']!=runner_id or
+                g['engine_runner']['lease_until']<=time.time()):return
+            try:
+                coordination.command(g,request,lease=self.gm_timeout)
+            except coordination.StaleController:
+                return  # Retired GM responses never execute or fall back.
+            except ValueError:
+                # A player's concurrent completion can invalidate an otherwise
+                # valid assignment. Retry on the next observation, not a failure.
+                return
+
+    def worker(self, game_id, aid, gateway,runner_id):
         start = time.monotonic()
-        with self.store.for_game(game_id):
-            g = self.store.get(game_id)
+        with self.store.transaction(game_id) as g:
             if g['agents'][aid]['status'] != 'active' or g['ended']:
                 return
             observation = view(g, aid)
         proposal = decide(observation, gateway)
-        with self.store.for_game(game_id):
-            g = self.store.get(game_id)
+        with self.store.transaction(game_id) as g:
+            if (not g['engine_runner'] or g['engine_runner']['id']!=runner_id or
+                g['engine_runner']['lease_until']<=time.time()):return
             try:
                 execute(g, proposal)
             except ValueError:
@@ -354,53 +399,89 @@ class Runtime:
                     fallback['reason'] += ' (엔진 검증 후 기본 정책 사용)'
                     execute(g,fallback)
             g['metrics']['latency_total'] += time.monotonic()-start
-            self.store.save(g)
 
     def run(self, game_id, gateway=None, cycles=200):
+        runner_id=secrets.token_urlsafe(18)
         jobs = {}
+        gm_job=None
+        gm_started=0
+        gm_term=None
+        gm_retry_at=0
         submitted = 0
         budget = cycles * len(self.store.get(game_id)['agents'])
-        while submitted < budget or jobs:
-            with self.store.for_game(game_id):
-                g = self.store.get(game_id)
-                if g['ended'] or g['status'] == 'paused':
-                    return
-                allocate(g)
-                active = [a['id'] for a in g['agents'].values() if a['status'] == 'active']
-                if not active:
-                    self.store.save(g)
-                    return
-                g['status'] = 'running'
-                self.store.save(g)
-            occupied = {aid for aid, _ in jobs.values()}
-            for aid in active:
-                if aid not in occupied and submitted < budget:
-                    jobs[self.pool.submit(self.worker, game_id, aid, gateway)] = (aid, time.monotonic())
-                    submitted += 1
-            if not jobs:
-                break
-            # A fast player can take its next action while another player reasons.
-            done, _ = wait(jobs, timeout=.1, return_when=FIRST_COMPLETED)
-            with self.store.for_game(game_id):
-                g = self.store.get(game_id)
-                if done:
-                    g['cycle'] += 1
-                for job in done:
-                    aid, _ = jobs.pop(job)
-                    if job.exception():
-                        fail(g, aid, 'worker_error')
-                for job, (aid, started) in list(jobs.items()):
-                    if time.monotonic()-started > 40:
-                        fail(g, aid, 'timeout')
-                        job.cancel()
-                        del jobs[job]
-                self.store.save(g)
-        with self.store.for_game(game_id):
-            g = self.store.get(game_id)
-            if not g['ended'] and g['status'] == 'running':
-                g['status'] = 'paused'
-            self.store.save(g)
+        while not self.stop.is_set():
+            with self.store.transaction(game_id) as g:
+                if g['ended'] or g['status']=='paused':return
+                claimed=coordination.claim_runner(g,runner_id)
+            if claimed:break
+            self.stop.wait(.1)
+        else:return
+        try:
+            while not self.stop.is_set() and (submitted < budget or jobs):
+                with self.store.transaction(game_id) as g:
+                    if not coordination.claim_runner(g,runner_id):return
+                    if g['ended'] or g['status'] == 'paused':return
+                    leader=coordination.current(g)
+                    failure=None
+                    if gm_job and gm_term==leader['term']:
+                        if gm_job.done() and gm_job.exception():failure='gm_exception'
+                        elif not gm_job.done() and time.monotonic()-gm_started>self.gm_timeout:
+                            failure='gm_timeout'
+                    if failure or time.time()>=leader['lease_until']:
+                        coordination.failover(g,leader['term'],failure or 'gm_lease_expired',lease=self.gm_timeout)
+                        leader=coordination.current(g)
+                    if gm_term!=leader['term']:
+                        gm_job=None;gm_retry_at=0
+                    if (not gm_job or gm_job.done()) and time.monotonic()>=gm_retry_at:
+                        gm_term=leader['term']
+                        gm_gateway=None if leader['reason'] in ('gm_exception','gm_timeout') else gateway
+                        leader['policy']='llm' if gm_gateway and gm_gateway.key else 'offline'
+                        gm_job=self.spawn_gm(game_id,gm_term,gm_gateway,runner_id)
+                        gm_started=time.monotonic();gm_retry_at=gm_started+.05
+                    active = [a['id'] for a in g['agents'].values() if a['status'] == 'active']
+                    if not active:
+                        g['status']='waiting_for_human'
+                        return
+                    g['status'] = 'running'
+                    shared_ids={c['id'] for c in g['shared']}
+                    solved=all(sum(c['category']==k for c in g['shared'])==len(v)-1 for k,v in CAT.items())
+                    active=[aid for aid in active if solved or
+                            any(t['owner']==aid and t['status']=='assigned' for t in g['tasks']) or
+                            any(c['id'] not in shared_ids for c in g['agents'][aid]['private'])]
+                occupied = {aid for aid, _ in jobs.values()}
+                for aid in active:
+                    if aid not in occupied and submitted < budget:
+                        jobs[self.pool.submit(self.worker, game_id, aid, gateway,runner_id)] = (aid, time.monotonic())
+                        submitted += 1
+                if not jobs:
+                    if submitted>=budget:break
+                    self.stop.wait(.01)
+                    continue
+                # A fast player can take its next action while another player reasons.
+                done, _ = wait(jobs, timeout=.1, return_when=FIRST_COMPLETED)
+                with self.store.transaction(game_id) as g:
+                    if not g['engine_runner'] or g['engine_runner']['id']!=runner_id:return
+                    if done:g['cycle'] += 1
+                    for job in done:
+                        aid, _ = jobs.pop(job)
+                        if job.exception():fail(g, aid, 'worker_error')
+                    for job, (aid, started) in list(jobs.items()):
+                        if time.monotonic()-started > self.player_timeout:
+                            fail(g, aid, 'timeout')
+                            job.cancel()
+                            del jobs[job]
+            with self.store.transaction(game_id) as g:
+                if not g['ended'] and g['status'] == 'running':g['status'] = 'paused'
+        finally:
+            with self.store.transaction(game_id) as g:
+                if g['engine_runner'] and g['engine_runner']['id']==runner_id:
+                    g['engine_runner']=None
+
+    def recover(self):
+        for game_id in self.store.running_multi():
+            self.start(game_id)
 
     def close(self):
+        self.stop.set()
         self.controllers.shutdown(wait=True)
         self.pool.shutdown(wait=True)
