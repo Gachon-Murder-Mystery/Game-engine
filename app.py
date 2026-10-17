@@ -13,6 +13,7 @@ from engine import new_game, public, add, apply, local_intent, SUSPECTS, WEAPONS
 from llm import Zen
 import multi
 import coordination
+import integration
 
 ROOT=Path(__file__).resolve().parent
 
@@ -61,6 +62,14 @@ class Handler(BaseHTTPRequestHandler):
         if self.path=='/':self.send(200,(ROOT/'index.html').read_bytes(),'text/html')
         elif self.path=='/multi':self.send(200,(ROOT/'multi.html').read_bytes(),'text/html')
         elif self.path=='/catalog':self.send(200,{'suspects':SUSPECTS,'weapons':WEAPONS,'places':PLACES,'jobs':JOBS})
+        elif self.path=='/integration/v1/catalog':self.send(200,integration.catalog())
+        elif self.path=='/integration/v1/health':
+            external=getattr(self.server,'external_engine',None)
+            watchdog=getattr(self.server,'external_watchdog',None)
+            self.send(200 if external else 503,{'schema_version':integration.VERSION,
+                      'external_api_enabled':external is not None,
+                      'watchdog_running':bool(watchdog and watchdog.thread.is_alive()),
+                      'watchdog_error':watchdog.last_error if watchdog else None})
         else:self.send(404,{'error':'찾을 수 없습니다.'})
     def do_POST(self):
         try:
@@ -71,6 +80,11 @@ class Handler(BaseHTTPRequestHandler):
             if size<2 or size>18000:raise ValueError('입력 크기를 확인하세요.')
             d=json.loads(self.rfile.read(size))
             if not isinstance(d,dict):raise ValueError('잘못된 입력입니다.')
+            if self.path.startswith('/integration/v1/'):
+                external=getattr(self.server,'external_engine',None)
+                if external is None:raise ValueError('외부 엔진 API가 활성화되지 않았습니다.')
+                response=external.handle(self.path[len('/integration/v1/'):],d)
+                self.send(200,response);return
             if self.path.startswith('/multi/'):
                 self.handle_multi(d);return
             if self.path=='/start':
@@ -80,7 +94,7 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(id,str) or len(id)>100:raise ValueError('먼저 사건을 시작하세요.')
             with self.server.store.for_game(id):
                 g=self.server.store.get(id)
-                if g.get('kind')=='multi':raise ValueError('멀티에이전트 화면에서 실행해주세요.')
+                if g.get('kind') in ('multi','external'):raise ValueError('해당 멀티에이전트 API에서 실행해주세요.')
                 if self.path=='/state':self.send(200,public(g));return
                 if self.path=='/export':
                     p=public(g);self.send(200,{'title':'오네이트 익스프레스 수사 기록','character':p['name'],'messages':p['messages'],'clues':p['clues'],'ended':p['ended']});return
@@ -129,6 +143,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.server.store.save(g)
                 p=public(g);p['connection_notice']=notice;p['mode']='llm' if key and not notice else 'offline'
                 self.send(200,p)
+        except integration.ContractError as e:
+            status=401 if e.code=='unauthorized' else 404 if e.code=='not_found' else 400 if e.code=='invalid_input' else 409
+            self.send(status,{'schema_version':integration.VERSION,'code':e.code,'error':str(e)[:250]})
         except (ValueError,TypeError,KeyError,json.JSONDecodeError) as e:self.send(400,{'error':str(e)[:250]})
         except Exception:self.send(500,{'error':'서버 오류가 발생했습니다. 입력을 확인하고 다시 시도해주세요.'})
     def log_message(self,*args):pass
@@ -196,7 +213,10 @@ def main():
     server=ThreadingHTTPServer(('127.0.0.1',args.port),Handler);server.store=Store(args.data)
     server.runtime=multi.Runtime(server.store)
     server.runtime.recover()
-    url=f'http://127.0.0.1:{args.port}/';print('오네이트 익스프레스 GM:',url,'(종료: Ctrl+C)',flush=True)
+    server.external_engine=integration.ExternalEngine(args.data)
+    server.external_watchdog=integration.ExternalWatchdog(server.external_engine)
+    server.external_watchdog.start()
+    url=f'http://127.0.0.1:{server.server_port}/';print('오네이트 익스프레스 GM:',url,'(종료: Ctrl+C)',flush=True)
     if not args.no_browser:threading.Timer(.5,lambda:webbrowser.open(url)).start()
     try:server.serve_forever()
     except KeyboardInterrupt:pass
@@ -206,5 +226,5 @@ def main():
         for game_id in ids:
             with server.store.transaction(game_id) as g:
                 if not g['ended']:g['status']='paused'
-        server.runtime.close();server.server_close()
+        server.external_watchdog.close();server.runtime.close();server.server_close()
 if __name__=='__main__':main()

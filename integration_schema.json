@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:ornate-express:engine-integration-v1",
+  "title": "External engine wire objects (authorization/state checks are performed by the engine)",
+  "$defs": {
+    "id": {"type": "string", "minLength": 1, "maxLength": 100, "description": "Engine additionally permits only alphanumeric characters and -_:.", "pattern": "^[^\\s/\\\\]+$"},
+    "information": {
+      "type": "object",
+      "required": ["id", "category", "text"],
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "category": {"enum": ["suspect", "weapon", "place"]},
+        "text": {"type": "string"},
+        "excluded_id": {"type": "integer", "minimum": 0},
+        "redacted": {"const": true}
+      },
+      "oneOf": [{"required": ["excluded_id"], "not": {"required": ["redacted"]}},
+                {"required": ["redacted"], "not": {"required": ["excluded_id"]}}],
+      "additionalProperties": false
+    },
+    "action_request": {
+      "type": "object",
+      "required": ["game_id", "agent_id", "action_id", "cycle_id", "phase", "phase_epoch", "action"],
+      "properties": {
+        "schema_version": {"const": "engine-integration-v1"},
+        "game_id": {"$ref": "#/$defs/id"}, "agent_id": {"$ref": "#/$defs/id"},
+        "action_id": {"$ref": "#/$defs/id"},
+        "cycle_id": {"type": "integer", "minimum": 1},
+        "phase": {"enum": ["movement", "interaction", "deduction"]},
+        "phase_epoch": {"type": "integer", "minimum": 1},
+        "task_id": {"anyOf": [{"$ref": "#/$defs/id"}, {"type": "null"}]},
+        "generation": {"type": ["integer", "null"], "minimum": 1},
+        "action": {"enum": ["move", "stay", "explore", "question", "prepare", "accuse", "pass"]},
+        "payload": {"type": "object"}
+      },
+      "if": {"required": ["task_id"], "properties": {"task_id": {"type": "string"}}},
+      "then": {"required": ["generation"], "properties": {"generation": {"type": "integer", "minimum": 1}}},
+      "additionalProperties": false
+    },
+    "action_result": {
+      "type": "object",
+      "required": ["schema_version", "game_id", "agent_id", "action_id", "cycle_id", "phase", "phase_epoch", "action",
+                   "execution_status", "consumed", "outcome", "acquired_information", "held_information_ids", "actor_mode"],
+      "properties": {
+        "schema_version": {"const": "engine-integration-v1"},
+        "game_id": {"$ref": "#/$defs/id"}, "agent_id": {"$ref": "#/$defs/id"},
+        "action_id": {"$ref": "#/$defs/id"},
+        "execution_status": {"enum": ["pending", "completed"]},
+        "consumed": {"const": true},
+        "outcome": {"enum": ["succeeded", "failed", "solved", "wrong_accusation", "awaiting_response",
+                             "no_new_information", "refused", "timed_out", "cancelled", "stale_task"]},
+        "acquired_information": {"type": "array", "items": {"$ref": "#/$defs/information"}},
+        "held_information_ids": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+        "actor_mode": {"enum": ["active", "npc"]},
+        "task_id": {"type": ["string", "null"]},
+        "generation": {"type": ["integer", "null"]},
+        "question_id": {"$ref": "#/$defs/id"},
+        "response_source": {"enum": ["agent", "npc_policy"]}
+      },
+      "description": "GM supervisor event projections replace acquired_information with acquired_information_ids; they are not player action_result objects."
+    },
+    "question_response": {
+      "type": "object",
+      "required": ["question_id", "response_id", "offer_ids", "refused"],
+      "properties": {
+        "question_id": {"$ref": "#/$defs/id"}, "response_id": {"$ref": "#/$defs/id"},
+        "offer_ids": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}},
+        "refused": {"type": "boolean"}, "disclosure": {"enum": ["full", "partial"]}
+      },
+      "if": {"properties": {"refused": {"const": true}}},
+      "then": {"properties": {"offer_ids": {"maxItems": 0}}},
+      "description": "Add game_id and player credential to the HTTP envelope."
+    },
+    "task": {
+      "type": "object",
+      "required": ["task_id", "agent_id"],
+      "properties": {
+        "task_id": {"$ref": "#/$defs/id"}, "agent_id": {"$ref": "#/$defs/id"},
+        "generation": {"type": "integer", "minimum": 1},
+        "kind": {"enum": ["move", "explore", "question", "prepare", "accuse", "pass"]},
+        "room": {"type": "integer", "minimum": 0, "maximum": 7},
+        "dependencies": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/id"}}
+      }
+    },
+    "strategy_state": {
+      "type": "object", "required": ["tactics", "weights"], "additionalProperties": false,
+      "properties": {
+        "tactics": {"type": "array", "maxItems": 6, "items": {"enum": ["verify_before_accuse", "ask_before_duplicate_search",
+                      "share_when_stalled", "parallelize_independent_tasks", "prefer_unexplored_rooms", "request_before_escalation"]}},
+        "weights": {"type": "object", "propertyNames": {"enum": ["team", "private", "information", "cost", "risk"]},
+                    "additionalProperties": {"type": "number", "minimum": -10, "maximum": 10}}
+      }
+    },
+    "error": {
+      "type": "object", "required": ["schema_version", "code", "error"],
+      "properties": {"schema_version": {"const": "engine-integration-v1"}, "code": {"type": "string"}, "error": {"type": "string"}}
+    }
+  },
+  "description": "Select a $defs object for validation. Legal phase/action combinations, inventory, ID spaces, generation, capability and atomicity are authoritative engine checks."
+}
