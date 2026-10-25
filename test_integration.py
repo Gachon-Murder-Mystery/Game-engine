@@ -43,6 +43,7 @@ class IntegrationTests(unittest.TestCase):
         self.serial = 0
 
     def call(self, route, creds=None, **data):
+        if route == 'games/create': data.setdefault('mode', 'legacy')
         return self.engine.handle(route, dict(creds or {}) | data)
 
     def pc(self, aid):

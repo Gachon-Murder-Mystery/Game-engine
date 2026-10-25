@@ -61,8 +61,11 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if self.path=='/':self.send(200,(ROOT/'index.html').read_bytes(),'text/html')
         elif self.path=='/multi':self.send(200,(ROOT/'multi.html').read_bytes(),'text/html')
+        elif self.path=='/competition':self.send(200,(ROOT/'competition.html').read_bytes(),'text/html')
         elif self.path=='/catalog':self.send(200,{'suspects':SUSPECTS,'weapons':WEAPONS,'places':PLACES,'jobs':JOBS})
-        elif self.path=='/integration/v1/catalog':self.send(200,integration.catalog())
+        elif self.path=='/integration/v1/catalog':
+            from competitive import catalog
+            self.send(200,catalog())
         elif self.path=='/integration/v1/health':
             external=getattr(self.server,'external_engine',None)
             watchdog=getattr(self.server,'external_watchdog',None)

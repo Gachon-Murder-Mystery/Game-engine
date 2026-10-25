@@ -160,10 +160,15 @@ class ExternalEngine:
         return c
 
     def event(self, g, kind, payload, visibility='shared', participants=()):
-        e = {'schema_version': VERSION, 'game_id': g['id'], 'event_id': f"{g['id']}:event:{len(g['events'])+1}",
-             'sequence': len(g['events'])+1, 'type': kind, 'timestamp': self.clock(),
+        sequence = (g.get('event_count', 0) if g.get('mode') == 'competitive' else len(g['events']))+1
+        e = {'schema_version': VERSION, 'game_id': g['id'], 'event_id': f"{g['id']}:event:{sequence}",
+             'sequence': sequence, 'type': kind, 'timestamp': self.clock(),
              'visibility': visibility, 'participants': list(participants), 'payload': copy.deepcopy(payload)}
         g['events'].append(e)
+        if g.get('mode') == 'competitive':
+            g['event_count'] = sequence
+            counts = g.setdefault('event_counts', {})
+            counts[kind] = counts.get(kind, 0)+1
         return e
 
     def experience(self, db, g, aid, source, role, outcome, success, tags=()):
@@ -190,7 +195,8 @@ class ExternalEngine:
             a = json.loads(raw)
             l = self.load(db, 'agent_learning', a['agent_id'])
             result.append({k: a[k] for k in ('agent_id', 'model_version', 'pool_status', 'busy_game_id')} |
-                          {'competencies': l['competencies'], 'learning_version': l['version']})
+                          {'competencies': l['competencies'], 'learning_version': l['version']} |
+                          {k: copy.deepcopy(a[k]) for k in ('pool_id', 'pool_role', 'fixed_mbti', 'history', 'negotiation_reputation') if k in a})
         return result
 
     def register(self, db, d):
@@ -240,7 +246,10 @@ class ExternalEngine:
                            (json.dumps(e), e['event_id']))
         feedback = [json.loads(r[0]) for r in db.execute(
             'SELECT state FROM experience_events WHERE agent_id=? ORDER BY rowid', (aid,))]
-        return {'agent_id': aid, 'learning': l, 'experience_events': feedback}
+        return {'agent_id': aid, 'learning': l, 'experience_events': feedback,
+                'participation_history': copy.deepcopy(a.get('history',[])),
+                'peer_reputation': copy.deepcopy(a.get('peer_reputation',{})),
+                'gm_reports': copy.deepcopy(a.get('gm_reports',[]))}
 
     def session(self, db, d):
         """Bootstrap only the persistent worker's current engine-assigned role."""
@@ -318,7 +327,7 @@ class ExternalEngine:
         require(rules['gm_visibility'] in ('ids_only', 'acquired_content') and
                 rules['successor_scope'] in ('active_players', 'active_then_pool'),
                 'invalid_input', 'invalid visibility or successor scope')
-        eligible = [a['agent_id'] for a in self.pool_cards(db) if a['pool_status'] == 'available']
+        eligible = [a['agent_id'] for a in self.pool_cards(db) if a['pool_status'] == 'available' and not a.get('pool_id')]
         candidates = d.get('candidate_ids', eligible)
         require(isinstance(candidates, list) and bool(candidates) and
                 all(isinstance(x, str) and x in eligible for x in candidates) and
@@ -479,6 +488,8 @@ class ExternalEngine:
                     'conflict', 'already assigned or current GM')
             require(g['status'] == 'awaiting_setup' or (g['phase'] == 'movement' and not g['spent']),
                     'conflict', 'activate only at setup or a fresh movement phase')
+            member=self.load(db,'agents',aid)
+            require(not member.get('pool_id'),'unauthorized','competitive pool members cannot enter legacy games')
             self.reserve(db, aid, g['id'])
             job_id = integer(item.get('job_id', 0), 'job_id', 0, len(JOBS)-1)
             personality = item.get('personality', 'cooperative')
@@ -962,15 +973,25 @@ class ExternalEngine:
             for gid, raw in rows:
                 g = json.loads(raw)
                 if g.get('kind') == 'external' and not g['ended']:
-                    self.sweep(db, g)
-                    self.put(db, 'games', gid, g, 'id')
+                    if g.get('mode') == 'competitive':
+                        from competitive import Rules
+                        rules = Rules(self)
+                        rules.sweep(db, g)
+                        rules.persist(db, g)
+                    else: self.sweep(db, g)
+                    if g.get('mode') != 'competitive': self.put(db, 'games', gid, g, 'id')
 
     def handle(self, route, d):
         require(isinstance(d, dict), 'invalid_input', 'JSON object required')
         require(d.get('schema_version', VERSION) == VERSION, 'unsupported_version', 'unsupported schema version')
         with self.transaction() as db:
             if route == 'catalog':
-                return catalog()
+                if d.get('mode') == 'legacy': return catalog()
+                from competitive import catalog as competitive_catalog
+                return competitive_catalog()
+            if route == 'pool/bootstrap':
+                from competitive import Rules
+                return Rules(self).bootstrap(db, d)
             if route == 'pool/register':
                 return self.register(db, d)
             if route == 'pool/list':
@@ -992,14 +1013,34 @@ class ExternalEngine:
                 return self.learning(db, d, route.endswith('/update'))
             if route == 'pool/session':
                 return self.session(db, d)
+            if route == 'pool/feedback':
+                a = self.member(db,d)
+                gid = identifier(d.get('game_id'),'game_id')
+                require(any(x['game_id']==gid for x in a.get('history',[])), 'unauthorized', 'feedback requires participation')
+                game = self.load(db,'games',gid,'id')
+                require(game.get('mode')=='competitive' and game['ended'], 'not_running', 'finalized competitive feedback required')
+                return {'game_id':gid,'feedback':copy.deepcopy(game['final_feedback']),
+                        'own_trades':[{k:copy.deepcopy(t[k]) for k in ('trade_id','proposer','recipient','status','fulfilled')}
+                                     for t in game['trades'].values() if a['agent_id'] in (t['proposer'],t['recipient'])]}
             if route == 'games/create':
-                return self.create(db, d)
+                require(d.get('mode', 'competitive') in ('legacy', 'competitive'), 'invalid_input', 'unknown game mode')
+                if d.get('mode') == 'legacy': return self.create(db, d)
+                from competitive import Rules
+                return Rules(self).create(db, d)
             if route == 'games/list':
                 self.operator(d)
                 games = [json.loads(raw) for (raw,) in db.execute('SELECT state FROM games')]
-                return {'games': [self.context(g) | {'control': self.gm_view(g)['control']}
+                return {'games': [self.context(g) | {'control': ({k: g['controller'][k] for k in ('controller_id', 'term')} if g.get('controller') else None)}
                                   for g in games if g.get('kind') == 'external']}
             g = self.game(db, d)
+            if g.get('mode') == 'competitive':
+                from competitive import Rules
+                result = Rules(self).handle(db, g, route, d)
+                readonly = ('gm/observe','gm/mission-candidates','agent/observe','agent/result',
+                            'questions/inbox','trades/inbox','events','games/observe','games/export',
+                            'games/credentials','observer/snapshot','relationships/graph')
+                if route not in readonly: Rules(self).persist(db, g)
+                return copy.deepcopy(result)
             # Expiration is committed by tick(), not hidden in a failing request transaction.
             if route == 'games/credentials':
                 self.operator(d)
@@ -1012,7 +1053,7 @@ class ExternalEngine:
                 result = self.operator_command(db, g, d)
             elif route == 'gm/observe':
                 self.gm(g, d, allow_waiting=True, allow_ended=True)
-                result = self.gm_view(g) | {'pool': self.pool_cards(db)}
+                result = self.gm_view(g) | {'pool': [a for a in self.pool_cards(db) if not a.get('pool_id')]}
             elif route == 'gm/heartbeat':
                 c = self.gm(g, d, allow_waiting=True)
                 c['lease_until'] = self.clock()+g['rules']['gm_lease']

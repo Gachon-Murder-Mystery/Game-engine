@@ -33,7 +33,7 @@ def main():
             operator = client.bind(operator_token=engine.operator_token)
             members = {aid: operator.call('pool/register', agent_id=aid, model_version='scripted-conformance-double')
                        for aid in ('common-1', 'common-2', 'common-3', 'common-4')}
-            created = operator.call('games/create', game_id='http-game-1', seed=42)
+            created = operator.call('games/create', game_id='http-game-1', seed=42, mode='legacy')
             gid = created['game_id']
             gm_identity = client.bind(agent_id=created['controller']['controller_id'],
                 pool_token=members[created['controller']['controller_id']]['pool_token'])
@@ -144,7 +144,7 @@ def main():
             learner_id = aids[0]
             eligible = operator.call('pool/list')['agents']
             second_gm = next(a['agent_id'] for a in eligible if a['pool_status'] == 'available' and a['agent_id'] != learner_id)
-            second = operator.call('games/create', game_id='http-game-2', seed=43, candidate_ids=[second_gm])
+            second = operator.call('games/create', game_id='http-game-2', seed=43, candidate_ids=[second_gm], mode='legacy')
             gm2 = client.bind(game_id=second['game_id'], **second['controller'])
             gm2.call('gm/command', operation='PLAN', command_id='setup2', map_version=0,
                      activate=[{'agent_id': learner_id}])

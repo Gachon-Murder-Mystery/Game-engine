@@ -56,6 +56,20 @@ class EngineClient:
         return self.call('questions/respond', question_id=question_id, response_id=response_id,
                          offer_ids=offer_ids, refused=refused, disclosure=disclosure)
 
+    def answer_competitive_question(self, question_id, response_id, statements):
+        return self.call('questions/respond', question_id=question_id, response_id=response_id, statements=statements)
+
+    def propose_trade(self, trade_id, target_id, offer_id, requested_category, message_id):
+        return self.call('trades/propose', trade_id=trade_id, target_id=target_id, offer_ids=[offer_id],
+                         requested_category=requested_category, message_id=message_id)
+
+    def trade_response(self, trade_id, decision, message_id, offer_ids=None):
+        return self.call('trades/respond', trade_id=trade_id, decision=decision,
+                         offer_ids=list(offer_ids or []), message_id=message_id)
+
+    def transfer_trade(self, trade_id, message_id):
+        return self.call('trades/transfer', trade_id=trade_id, message_id=message_id)
+
     def action_request(self, observation, action, payload=None, task_id=None, action_id=None):
         """Build a request from a recorded observation, not from newer hidden state."""
         import uuid

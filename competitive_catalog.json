@@ -1,0 +1,1127 @@
+{
+ "schema_version": "gm-v12-data-0.1",
+ "provenance": {
+  "characters": "GAME_SPEC_v1.3.md A1",
+  "missions": "SUBMISSION_INDIRECT_CLUE_v1.0.md 2.5-2.6",
+  "ids": "Game-engine/engine.py PLACES/JOBS order",
+  "license": "Hunka Dunka (2024), CC BY-SA 4.0"
+ },
+ "places": [
+  "라운지 칸",
+  "침대 칸",
+  "식당 칸",
+  "주방 칸",
+  "수하물 칸",
+  "금고 칸",
+  "전망 칸",
+  "기관실"
+ ],
+ "jobs": [
+  "탐정",
+  "배우",
+  "사업가",
+  "사기꾼",
+  "교수",
+  "대령",
+  "의사",
+  "상속인",
+  "기술자",
+  "요리사",
+  "차장",
+  "기자"
+ ],
+ "mbti": [
+  "ESTJ",
+  "ESTP",
+  "ESFJ",
+  "ESFP",
+  "ENTJ",
+  "ENTP",
+  "ENFJ",
+  "ENFP",
+  "ISTJ",
+  "ISTP",
+  "ISFJ",
+  "ISFP",
+  "INTJ",
+  "INTP",
+  "INFJ",
+  "INFP"
+ ],
+ "tiers": [
+  "하",
+  "중",
+  "상"
+ ],
+ "stat_tokens": {
+  "관찰5": "observe",
+  "화술5": "speech",
+  "위압5": "pressure"
+ },
+ "characters": [
+  {
+   "id": 0,
+   "name": "알렉스 누아르",
+   "job": "탐정",
+   "job_id": 0,
+   "start_room": 0,
+   "stats": {
+    "observe": 5,
+    "speech": 3,
+    "pressure": 3
+   },
+   "skill": {
+    "name": "현장 감식",
+    "effect": "탐색 기준선 −1"
+   }
+  },
+  {
+   "id": 1,
+   "name": "케이시 스칼렛",
+   "job": "배우",
+   "job_id": 1,
+   "start_room": 1,
+   "stats": {
+    "observe": 3,
+    "speech": 5,
+    "pressure": 3
+   },
+   "skill": {
+    "name": "감정 연기",
+    "effect": "질문 기준선 −1"
+   }
+  },
+  {
+   "id": 2,
+   "name": "에이버리 재스퍼",
+   "job": "사업가",
+   "job_id": 2,
+   "start_room": 5,
+   "stats": {
+    "observe": 3,
+    "speech": 4,
+    "pressure": 4
+   },
+   "skill": {
+    "name": "거래의 달인",
+    "effect": "교섭 기준선 −1"
+   }
+  },
+  {
+   "id": 3,
+   "name": "로언 앰버",
+   "job": "사기꾼",
+   "job_id": 3,
+   "start_room": 4,
+   "stats": {
+    "observe": 3,
+    "speech": 5,
+    "pressure": 3
+   },
+   "skill": {
+    "name": "둘러대기",
+    "effect": "자신이 심문·협박을 받을 때 상대 기준선 +1"
+   }
+  },
+  {
+   "id": 4,
+   "name": "라일리 올리브",
+   "job": "교수",
+   "job_id": 4,
+   "start_room": 6,
+   "stats": {
+    "observe": 5,
+    "speech": 3,
+    "pressure": 3
+   },
+   "skill": {
+    "name": "논리 추궁",
+    "effect": "심문 기준선 −1"
+   }
+  },
+  {
+   "id": 5,
+   "name": "다코타 네이비",
+   "job": "대령",
+   "job_id": 5,
+   "start_room": 0,
+   "stats": {
+    "observe": 3,
+    "speech": 3,
+    "pressure": 5
+   },
+   "skill": {
+    "name": "군인의 위압",
+    "effect": "협박 기준선 −1"
+   }
+  },
+  {
+   "id": 6,
+   "name": "케이시 더블루",
+   "job": "의사",
+   "job_id": 6,
+   "start_room": 1,
+   "stats": {
+    "observe": 4,
+    "speech": 4,
+    "pressure": 3
+   },
+   "skill": {
+    "name": "검시",
+    "effect": "시체 탐색 기준선 −2"
+   }
+  },
+  {
+   "id": 7,
+   "name": "바이올렛 모레티",
+   "job": "상속인",
+   "job_id": 7,
+   "start_room": 5,
+   "stats": {
+    "observe": 3,
+    "speech": 4,
+    "pressure": 4
+   },
+   "skill": {
+    "name": "금고 열쇠",
+    "effect": "금고 칸 탐색 기준선 −2"
+   }
+  },
+  {
+   "id": 8,
+   "name": "캐머런 펄",
+   "job": "기술자",
+   "job_id": 8,
+   "start_room": 7,
+   "stats": {
+    "observe": 5,
+    "speech": 3,
+    "pressure": 3
+   },
+   "skill": {
+    "name": "기계 이해",
+    "effect": "기관실 탐색 기준선 −2"
+   }
+  },
+  {
+   "id": 9,
+   "name": "캉디드 블랑슈",
+   "job": "요리사",
+   "job_id": 9,
+   "start_room": 3,
+   "stats": {
+    "observe": 3,
+    "speech": 3,
+    "pressure": 5
+   },
+   "skill": {
+    "name": "주방의 주인",
+    "effect": "주방 칸 탐색 기준선 −2"
+   }
+  },
+  {
+   "id": 10,
+   "name": "퀸 슬레이트",
+   "job": "차장",
+   "job_id": 10,
+   "start_room": 2,
+   "stats": {
+    "observe": 4,
+    "speech": 4,
+    "pressure": 3
+   },
+   "skill": {
+    "name": "승무원 권한",
+    "effect": "NPC 대상 질문·심문 기준선 −1"
+   }
+  },
+  {
+   "id": 11,
+   "name": "파커 에보니",
+   "job": "기자",
+   "job_id": 11,
+   "start_room": 6,
+   "stats": {
+    "observe": 4,
+    "speech": 4,
+    "pressure": 3
+   },
+   "skill": {
+    "name": "끈질긴 취재",
+    "effect": "이번 게임에서 이미 질문한 상대에게 질문 기준선 −1"
+   }
+  }
+ ],
+ "missions": [
+  {
+   "id": "O1",
+   "name": "금고 털기",
+   "condition": "금고 칸 탐색 성공 2회. 성공한 사이클에 금고 칸에 다른 플레이어가 없어야 함",
+   "base": "상",
+   "easier": [
+    "상속인",
+    "사업가",
+    "관찰5"
+   ],
+   "harder": [],
+   "interference": "금고 칸에 머무르기. M45 금고 경비와 충돌",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "O2",
+   "name": "비밀 지키기",
+   "condition": "처음 얻은 확실한 단서를 40사이클 동안 보유 공개·교섭 이전·응답 공개하지 않음",
+   "base": "중",
+   "easier": [
+    "사기꾼",
+    "I"
+   ],
+   "harder": [
+    "사업가",
+    "E"
+   ],
+   "interference": "질문을 반복해 그 단서를 내놓게 압박",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "O3",
+   "name": "열차 멈추기",
+   "condition": "다른 플레이어가 없는 기관실에 6사이클 연속 머무르고, 그동안 기관실 탐색 1회 이상 성공",
+   "base": "중",
+   "easier": [
+    "기술자"
+   ],
+   "harder": [],
+   "interference": "기관실에 들어가기. M50 기관실 점거와 충돌",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "O4",
+   "name": "무죄 증명",
+   "condition": "서로 다른 캐릭터 4명이 나에게 가진 관계성 65 이상",
+   "base": "중",
+   "easier": [
+    "화술5",
+    "차장"
+   ],
+   "harder": [
+    "위압5"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "O5",
+   "name": "사랑 찾기",
+   "condition": "GM이 지정한 캐릭터 1명이 나에게 가진 관계성 85 이상",
+   "base": "상",
+   "easier": [
+    "배우",
+    "F"
+   ],
+   "harder": [
+    "위압5"
+   ],
+   "interference": "지정 대상이 플레이어면 교섭을 거절",
+   "designate": "character",
+   "designate_count": 1
+  },
+  {
+   "id": "O6",
+   "name": "거대한 비밀 밝히기",
+   "condition": "GM이 지정한 간접 단서 3개를 모두 획득",
+   "base": "상",
+   "easier": [
+    "기자",
+    "탐정"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": "indirect_clues",
+   "designate_count": 3
+  },
+  {
+   "id": "O7",
+   "name": "그냥 멋지게",
+   "condition": "40사이클 동안 심문·협박 0회",
+   "base": "하",
+   "easier": [
+    "화술5"
+   ],
+   "harder": [
+    "위압5"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M01",
+   "name": "순회 승객",
+   "condition": "8개 칸을 모두 1회 이상 방문",
+   "base": "중",
+   "easier": [
+    "차장",
+    "P"
+   ],
+   "harder": [
+    "J"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M02",
+   "name": "단골손님",
+   "condition": "식당 칸에서 탐문·탐색 단계를 총 10회 보냄",
+   "base": "중",
+   "easier": [
+    "차장"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M03",
+   "name": "주방 사수",
+   "condition": "주방 칸에 6사이클 연속 머무름",
+   "base": "중",
+   "easier": [
+    "요리사"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M04",
+   "name": "잠복",
+   "condition": "수하물 칸에 6사이클 연속 머무르고, 그동안 다른 플레이어가 수하물 칸에 들어오지 않음",
+   "base": "상",
+   "easier": [
+    "사기꾼",
+    "I"
+   ],
+   "harder": [
+    "E"
+   ],
+   "interference": "수하물 칸에 들어가기",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M05",
+   "name": "전망대 관찰",
+   "condition": "전망 칸 탐색 성공 3회",
+   "base": "중",
+   "easier": [
+    "교수",
+    "기자",
+    "관찰5"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M06",
+   "name": "조용한 객실",
+   "condition": "침대 칸에 5사이클 연속 머무르는 동안 질문 계열을 한 번도 받지 않음",
+   "base": "중",
+   "easier": [
+    "배우",
+    "의사",
+    "I"
+   ],
+   "harder": [
+    "E"
+   ],
+   "interference": "침대 칸에 들어가 질문",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M07",
+   "name": "미행",
+   "condition": "GM이 지정한 캐릭터와 같은 칸에서 사이클 10회를 보냄",
+   "base": "중",
+   "easier": [
+    "탐정",
+    "기자"
+   ],
+   "harder": [],
+   "interference": "지정 대상이 플레이어면 피해 다님. M08과 짝",
+   "designate": "character",
+   "designate_count": 1
+  },
+  {
+   "id": "M08",
+   "name": "거리 두기",
+   "condition": "GM이 지정한 플레이어와 20사이클 동안 같은 칸에 있지 않음",
+   "base": "중",
+   "easier": [
+    "I"
+   ],
+   "harder": [
+    "E"
+   ],
+   "interference": "지정 플레이어가 따라붙음. M07과 짝",
+   "designate": "player",
+   "designate_count": 1
+  },
+  {
+   "id": "M09",
+   "name": "원점 고수",
+   "condition": "처음 10사이클 동안 출발 칸을 떠나지 않음",
+   "base": "하",
+   "easier": [],
+   "harder": [
+    "P"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M10",
+   "name": "군중 속으로",
+   "condition": "캐릭터가 4명 이상 있는 칸에서 탐문·탐색 단계 5회",
+   "base": "중",
+   "easier": [
+    "E",
+    "차장"
+   ],
+   "harder": [
+    "I"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M11",
+   "name": "외톨이 조사",
+   "condition": "다른 캐릭터가 없는 칸에서 탐문·탐색 단계 8회",
+   "base": "중",
+   "easier": [
+    "I",
+    "관찰5"
+   ],
+   "harder": [
+    "E"
+   ],
+   "interference": "같은 칸에 들어가기",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M12",
+   "name": "인맥왕",
+   "condition": "서로 다른 6명이 나에게 가진 관계성 60 이상",
+   "base": "상",
+   "easier": [
+    "화술5",
+    "E"
+   ],
+   "harder": [
+    "위압5"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M13",
+   "name": "승무원의 친구",
+   "condition": "NPC 3명이 나에게 가진 관계성 70 이상",
+   "base": "중",
+   "easier": [
+    "차장"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M14",
+   "name": "라이벌의 인정",
+   "condition": "GM이 지정한 플레이어가 나에게 가진 관계성 70 이상",
+   "base": "상",
+   "easier": [
+    "사업가",
+    "F"
+   ],
+   "harder": [],
+   "interference": "지정 플레이어가 교섭을 거절",
+   "designate": "player",
+   "designate_count": 1
+  },
+  {
+   "id": "M15",
+   "name": "단골 증인",
+   "condition": "GM이 지정한 NPC가 나에게 가진 관계성 80 이상",
+   "base": "중",
+   "easier": [
+    "차장",
+    "화술5"
+   ],
+   "harder": [
+    "위압5"
+   ],
+   "interference": "",
+   "designate": "npc",
+   "designate_count": 1
+  },
+  {
+   "id": "M16",
+   "name": "원만한 평판",
+   "condition": "40사이클 동안 어느 캐릭터도 나에게 가진 관계성이 30 이하로 떨어지지 않음",
+   "base": "중",
+   "easier": [
+    "화술5",
+    "F"
+   ],
+   "harder": [
+    "위압5"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M17",
+   "name": "공포의 대상",
+   "condition": "서로 다른 3명이 나에게 가진 관계성 30 이하",
+   "base": "중",
+   "easier": [
+    "대령",
+    "위압5"
+   ],
+   "harder": [
+    "화술5",
+    "F"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M18",
+   "name": "극과 극",
+   "condition": "나에게 가진 관계성이 80 이상인 캐릭터와 20 이하인 캐릭터가 동시에 있음",
+   "base": "상",
+   "easier": [],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M19",
+   "name": "첫인상",
+   "condition": "처음 15사이클 안에 서로 다른 3명이 나에게 가진 관계성 60 이상",
+   "base": "중",
+   "easier": [
+    "배우",
+    "E"
+   ],
+   "harder": [
+    "I"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M20",
+   "name": "비폭력 협상가",
+   "condition": "30사이클 동안 협박 0회이고 교섭 성사 1회 이상",
+   "base": "하",
+   "easier": [
+    "사업가"
+   ],
+   "harder": [
+    "대령"
+   ],
+   "interference": "교섭 거절",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M21",
+   "name": "말로만",
+   "condition": "30사이클 동안 탐색 0회",
+   "base": "중",
+   "easier": [
+    "화술5"
+   ],
+   "harder": [
+    "관찰5"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M22",
+   "name": "발로만",
+   "condition": "30사이클 동안 질문 계열 0회",
+   "base": "중",
+   "easier": [
+    "관찰5",
+    "I"
+   ],
+   "harder": [
+    "화술5",
+    "기자"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M23",
+   "name": "즉흥 수사",
+   "condition": "30사이클 동안 준비 0회",
+   "base": "하",
+   "easier": [
+    "P"
+   ],
+   "harder": [
+    "J"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M24",
+   "name": "철저한 준비",
+   "condition": "준비 바로 다음에 판정 행동을 한 경우 8회",
+   "base": "중",
+   "easier": [
+    "J"
+   ],
+   "harder": [
+    "P"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M25",
+   "name": "떠돌이",
+   "condition": "20사이클 연속, 매 이동 단계마다 다른 칸으로 이동",
+   "base": "중",
+   "easier": [
+    "차장",
+    "P"
+   ],
+   "harder": [
+    "J"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M26",
+   "name": "패 숨기기",
+   "condition": "40사이클 동안 보유 공개 0회",
+   "base": "중",
+   "easier": [
+    "사기꾼",
+    "I"
+   ],
+   "harder": [
+    "사업가"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M27",
+   "name": "거래 거부",
+   "condition": "40사이클 동안 교섭 제안·수락 0회",
+   "base": "하",
+   "easier": [
+    "I"
+   ],
+   "harder": [
+    "사업가"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M28",
+   "name": "끈질긴 취재",
+   "condition": "같은 캐릭터에게 질문 5회",
+   "base": "중",
+   "easier": [
+    "기자"
+   ],
+   "harder": [],
+   "interference": "대상 플레이어가 피해 다님",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M29",
+   "name": "증언 수집",
+   "condition": "서로 다른 캐릭터 7명에게 질문 계열 성공(1성공 이상)",
+   "base": "중",
+   "easier": [
+    "기자",
+    "차장",
+    "E"
+   ],
+   "harder": [
+    "I"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M30",
+   "name": "압박 면접",
+   "condition": "심문 성공 4회",
+   "base": "중",
+   "easier": [
+    "교수",
+    "위압5"
+   ],
+   "harder": [
+    "화술5"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M31",
+   "name": "협박의 기술",
+   "condition": "협박 성공 3회",
+   "base": "중",
+   "easier": [
+    "대령",
+    "위압5"
+   ],
+   "harder": [
+    "화술5",
+    "F"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M32",
+   "name": "현장 감식",
+   "condition": "장소 탐색 성공 6회",
+   "base": "중",
+   "easier": [
+    "탐정",
+    "관찰5"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M33",
+   "name": "세 칸의 흔적",
+   "condition": "서로 다른 3개 칸에서 탐색 성공",
+   "base": "하",
+   "easier": [
+    "관찰5"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M34",
+   "name": "화술의 정석",
+   "condition": "2성공 이상인 질문 3회",
+   "base": "중",
+   "easier": [
+    "배우",
+    "화술5"
+   ],
+   "harder": [
+    "위압5"
+   ],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M35",
+   "name": "NPC 전문가",
+   "condition": "NPC 대상 질문·심문 성공 6회",
+   "base": "중",
+   "easier": [
+    "차장"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M36",
+   "name": "신용 거래",
+   "condition": "양측 모두 이행한 교섭 3회",
+   "base": "중",
+   "easier": [
+    "사업가",
+    "J"
+   ],
+   "harder": [
+    "P"
+   ],
+   "interference": "상대가 불이행",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M37",
+   "name": "배신",
+   "condition": "상대만 이행하고 자신은 불이행한 교섭 2회",
+   "base": "중",
+   "easier": [
+    "사기꾼",
+    "P"
+   ],
+   "harder": [
+    "J"
+   ],
+   "interference": "먼저 넘기지 않기",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M38",
+   "name": "거래망",
+   "condition": "서로 다른 3명과 교섭 성사",
+   "base": "중",
+   "easier": [
+    "사업가",
+    "E"
+   ],
+   "harder": [
+    "I"
+   ],
+   "interference": "교섭 거절",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M39",
+   "name": "선이전 유도",
+   "condition": "상대가 먼저 넘긴 교섭 3회",
+   "base": "상",
+   "easier": [
+    "사업가",
+    "사기꾼"
+   ],
+   "harder": [],
+   "interference": "먼저 넘기지 않기",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M40",
+   "name": "고른 수집",
+   "condition": "용의자·흉기·장소 분류의 확실한 단서를 각 2개 이상 보유",
+   "base": "중",
+   "easier": [
+    "관찰5"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M41",
+   "name": "알리바이 수집",
+   "condition": "간접 단서 4개 획득",
+   "base": "중",
+   "easier": [
+    "탐정",
+    "기자"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M42",
+   "name": "정보 독점",
+   "condition": "GM이 지정한 장소의 단서를 얻고, 그 뒤 20사이클 동안 다른 플레이어가 그 단서를 얻지 못함",
+   "base": "상",
+   "easier": [
+    "관찰5"
+   ],
+   "harder": [],
+   "interference": "그 장소를 탐색",
+   "designate": "place",
+   "designate_count": 1
+  },
+  {
+   "id": "M43",
+   "name": "정보원",
+   "condition": "질문 응답으로 서로 다른 플레이어 3명에게 확실한 단서를 줌",
+   "base": "중",
+   "easier": [
+    "E",
+    "F"
+   ],
+   "harder": [
+    "I",
+    "T"
+   ],
+   "interference": "그 플레이어에게 질문하지 않기",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M51",
+   "name": "나는야 명탐정",
+   "condition": "확실한 단서 N개 획득(탐색·질문 계열 모두 셈). 기준 난이도는 N으로 정함: N=3 하, N=5 중, N=8 상",
+   "base": null,
+   "easier": [
+    "탐정",
+    "관찰5"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": null,
+   "designate_count": 0,
+   "quantity": {
+    "3": "하",
+    "5": "중",
+    "8": "상"
+   }
+  },
+  {
+   "id": "M44",
+   "name": "감시",
+   "condition": "GM이 지정한 플레이어에게 질문 계열 행동 4회",
+   "base": "중",
+   "easier": [
+    "기자"
+   ],
+   "harder": [],
+   "interference": "지정 플레이어가 피해 다님",
+   "designate": "player",
+   "designate_count": 1
+  },
+  {
+   "id": "M45",
+   "name": "금고 경비",
+   "condition": "금고 칸에 총 10사이클 머무름",
+   "base": "중",
+   "easier": [
+    "상속인",
+    "사업가"
+   ],
+   "harder": [],
+   "interference": "O1 금고 털기와 충돌",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M46",
+   "name": "견제",
+   "condition": "GM이 지정한 플레이어에게 심문·협박 성공 2회",
+   "base": "중",
+   "easier": [
+    "교수",
+    "대령",
+    "위압5"
+   ],
+   "harder": [
+    "화술5"
+   ],
+   "interference": "지정 플레이어가 피해 다님",
+   "designate": "player",
+   "designate_count": 1
+  },
+  {
+   "id": "M47",
+   "name": "증인 선점",
+   "condition": "GM이 지정한 NPC에게 질문 성공 3회",
+   "base": "하",
+   "easier": [
+    "차장"
+   ],
+   "harder": [],
+   "interference": "",
+   "designate": "npc",
+   "designate_count": 1
+  },
+  {
+   "id": "M48",
+   "name": "주목받기",
+   "condition": "다른 캐릭터에게서 질문 계열 행동을 받은 횟수 6회",
+   "base": "중",
+   "easier": [
+    "E"
+   ],
+   "harder": [
+    "I"
+   ],
+   "interference": "일부러 질문하지 않기. M49와 반대",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M49",
+   "name": "투명인간",
+   "condition": "15사이클 동안 질문 계열 행동을 한 번도 받지 않음",
+   "base": "중",
+   "easier": [
+    "I"
+   ],
+   "harder": [
+    "E"
+   ],
+   "interference": "찾아가 질문하기. M48과 반대",
+   "designate": null,
+   "designate_count": 0
+  },
+  {
+   "id": "M50",
+   "name": "기관실 점거",
+   "condition": "기관실에 총 8사이클 머무름",
+   "base": "중",
+   "easier": [
+    "기술자"
+   ],
+   "harder": [],
+   "interference": "O3 열차 멈추기와 충돌",
+   "designate": null,
+   "designate_count": 0
+  }
+ ]
+}

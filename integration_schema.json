@@ -3,6 +3,39 @@
   "$id": "urn:ornate-express:engine-integration-v1",
   "title": "External engine wire objects (authorization/state checks are performed by the engine)",
   "$defs": {
+    "competitive_role": {
+      "type":"object", "required":["agent_id","character_id","sub_missions"], "additionalProperties":false,
+      "properties": {
+        "agent_id":{"$ref":"#/$defs/id"}, "character_id":{"type":"integer","minimum":0,"maximum":11},
+        "sub_missions":{"type":"array","minItems":3,"maxItems":3,"items":{
+          "type":"object","required":["mission_id","tier","targets","params"],
+          "properties":{"mission_id":{"type":"string"},"tier":{"enum":["하","중","상"]},"targets":{"type":"object"},"params":{"type":"object"}}
+        }}
+      }
+    },
+    "competitive_information": {
+      "type":"object", "required":["id","kind"],
+      "properties":{"id":{"$ref":"#/$defs/id"},"kind":{"enum":["definite","indirect","narrated","possession"]},
+        "text":{"type":"string"},"category":{"enum":["suspect","weapon","place","indirect"]},
+        "candidate":{"type":"integer","minimum":0,"maximum":11},
+        "type":{"enum":["character_room","weapon_room","companion"]},"narrations":{"type":"array","items":{"type":"string"}}},
+      "description":"Narrated/possession packets omit original facts. Never treat a narrated packet as a definite exclusion."
+    },
+    "competitive_response": {
+      "type":"object", "required":["question_id","response_id","statements"],
+      "properties":{"question_id":{"$ref":"#/$defs/id"},"response_id":{"$ref":"#/$defs/id"},
+        "statements":{"type":"array","maxItems":3,"items":{"type":"object","required":["kind"],
+          "properties":{"kind":{"enum":["definite","ambiguous","indirect"]},"clue_id":{"$ref":"#/$defs/id"},
+            "category":{"enum":["suspect","weapon","place"]},"candidate":{"type":"integer","minimum":0,"maximum":11},"text":{"type":"string"}}}}},
+      "description":"Engine validates success-tier amount, ownership, and exact truth-preserving narration grammar. No refused/offer_ids legacy fields."
+    },
+    "competitive_action_result": {
+      "type":"object", "required":["schema_version","ruleset","game_id","agent_id","action_id","execution_status","outcome","consumed","acquired_information"],
+      "properties":{"schema_version":{"const":"engine-integration-v1"},"ruleset":{"const":"competitive-v1.3"},
+        "execution_status":{"enum":["pending","completed"]},"consumed":{"const":true},
+        "outcome":{"enum":["completed","acquired","no_information","awaiting_response","awaiting_adjudication","winner","dead"]},
+        "acquired_information":{"type":"array","items":{"$ref":"#/$defs/competitive_information"}}}
+    },
     "id": {"type": "string", "minLength": 1, "maxLength": 100, "description": "Engine additionally permits only alphanumeric characters and -_:.", "pattern": "^[^\\s/\\\\]+$"},
     "information": {
       "type": "object",

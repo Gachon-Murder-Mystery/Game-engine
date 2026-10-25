@@ -1,4 +1,32 @@
-# 오네이트 익스프레스 · 대화형 TRPG GM (v2)
+# 오네이트 익스프레스 · 멀티에이전트 게임 엔진
+
+## 현재 구현: 경쟁형 v1.3
+
+2026-10-25 기준 HTML 수정안과 C의 확정 기획서 v1.3을 반영했습니다.
+고정 GM + 고정 MBTI 16종의 영속 풀, 12명 공통 캐릭터, 방향성 관계성,
+간접 단서·진실성 검사, 서브 미션 58종, 비구속 교섭, 동시 추리·공동 승리·사망·시체·마감을 지원합니다.
+기존 1인용/협력형 데모는 아래 호환 기능으로 유지합니다.
+
+```powershell
+python app.py --no-browser
+# 별도 터미널: 영속 풀 생성 (동일 DB)
+python integration_cli.py call --route pool/bootstrap --json '{}'
+```
+
+관전/운영: **http://127.0.0.1:8765/competition**.
+실제 C의 순수 GM 정책과 명시적 플레이어 대역으로 검증하려면:
+
+```powershell
+python launcher.py --seed 7 --progress
+python launcher.py --scenario gm-fault --seed 7 --progress
+```
+
+런처는 기본적으로 임시 DB의 별도 엔진 프로세스를 실행하고 종료합니다.
+`--data data/rehearsal.sqlite3`로 게임·풀을 보존할 수 있습니다.
+이는 **실제 B/LLM 실행이 아닌 대역 시연**이며, 팀 코드 원본을 수정하지 않는 연결 어댑터입니다.
+기획 우선순위, API, 관계성 실험, B/C 연결 변경점은 [경쟁형 계약 및 검증 안내](COMPETITIVE_V1_3.md)를 보세요.
+
+## 기존 대화형 데모
 
 마스터에게 자연어로 행동과 대사를 입력하는 로컬 데모입니다. 기존 버튼 중심 데모를 채팅, 장소 상태, NPC 기억, 판정 요청 흐름으로 리팩토링했습니다.
 

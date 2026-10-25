@@ -1,5 +1,36 @@
 # GitHub 반영 전 테스트 계획
 
+## 2026-10-25 경쟁형 v1.3 검증
+
+기준과 API는 [경쟁형 연결 계약](COMPETITIVE_V1_3.md)을 따른다. 아래 기존 계획은
+`mode=legacy` 회귀 범위이며, 경쟁형의 강제 정보량·자유 응답·GM 책임과 혼용하지 않는다.
+
+| 범위 | 실행 | 통과 기준 |
+| --- | --- | --- |
+| 경쟁형 규칙·격리·장애 | `python -B -m unittest discover -q` | 기존 90개와 경쟁형 50개; 단일 GM·옛 임기 차단·재시작·미션 58종·추리 동시 판정·응답 진실성·비밀 격리 |
+| 경쟁형 화면 | `python -B tests/run_competition_browser.py` | 캐릭터 12명, 방향성 관계 그래프, 운영자 정지/재개, 관전자 비밀 차단, 모바일, JS 오류 없음 |
+| 기존 화면·HTTP | `python -B tests/run_browser.py`, `python -B tests/run_external.py` | 기존 게임·승계·외부 대역의 두 회차 실행 유지 |
+| C 정책 | `python -B -m unittest discover -s teams/GM_Agent_Society -t teams -p test_v12_policy.py -q` | 최신 C 순수 정책 23개 통과 |
+| B 기본 호환 | `python -B tests/probe_team_player.py` | 실제 B 클래스 + 모델 스텁으로 기존 계약의 관찰·행동·질문 응답 검사 |
+| 관계 효과 | `python -B tests/relationship_experiment.py` | 같은 난수로 조건당 1,024회 비교; 효과 OFF일 때 관계값별 성공률 동일, ON일 때 순서 변화 |
+| 경쟁형 공동 실행 | `python -B launcher.py --seed 7 --progress` | 실제 HTTP·C 순수 정책·명시적 스크립트 플레이어/합법성 어댑터로 공식 종료·REPORT |
+| 장애 공동 실행 | launcher의 `--scenario player-fault`, `gm-fault`, `human` | 중간 보충 없음, GM 승계·옛 자격 차단, 예비 GM의 0명 종료; 전원 소진 운영자 종료는 단위 테스트 |
+
+실측 관계 질문 성공률은 관계 20/50/80에서 28.81%/57.62%/77.54%, 효과 OFF에서는
+모두 57.62%였다. 이는 엔진 규칙의 효과만 검증하며 LLM의 관계 이해·학습 효과를 뜻하지 않는다.
+최초 관계는 확정 명세대로 매 회차 50으로 초기화한다. 사전 친분·회차 간 관계 누적은 넣지 않았다.
+
+실제 B의 경쟁형 런타임과 유료 LLM 호출은 이 검증에 포함되지 않는다. 실행기 결과에는
+`live_llm=false`, 사용한 정책/어댑터, 필터링 수, 저장소 버전과 실행 출처를 명시한다.
+후속 B/C 인계 시 성공 단계별 응답, 역할 전환, 출력 토큰 집계까지 실제 런타임으로 추가 검증한다.
+
+2026-10-25 실행 결과: 전체 140개와 C 정책 23개 통과. 두 브라우저 검사, 기존 HTTP 대역,
+B 스텁, 관계 실험 모두 통과. 경쟁형 실제 HTTP 정상 실행은 120사이클 마감으로 종료했고,
+플레이어 장애 실행은 53사이클에 승자가 나왔다(질문 82회, 정보 전달 20회, 관계 갱신 82회).
+GM 장애 실행은 로컬 동일 API 드라이버에서 48사이클 승자·승계 1회를 확인했다.
+예비 GM의 0명 종료는 실제 HTTP로 확인했다. 장애 실행은 종료에 성공해도 공식 REPORT의
+`technical_failure=true`, `success=false`를 유지한다. 대역의 게임 전략 성능을 합격 조건으로 삼지 않는다.
+
 대상: `internal_docs` 요구에 따른 멀티에이전트 기능과 기존 1인용 게임의 회귀 여부.
 
 ## 외부 연결 준비 v1 추가 통과 기준

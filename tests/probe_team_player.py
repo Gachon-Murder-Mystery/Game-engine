@@ -43,7 +43,8 @@ with tempfile.TemporaryDirectory() as tmp:
 
 
 def main():
-    b = ROOT/'teams/Agent_Reasoning/deploy'
+    b = ROOT/'teams/Agent_Reasoning'
+    if not (b/'agent.py').exists(): b = b/'deploy'
     if not (b/'agent.py').exists():
         raise SystemExit('Clone B into ignored teams/Agent_Reasoning to run this optional probe')
     observation = {'game_id': 'probe', 'cycle_id': 1, 'phase': 'movement', 'phase_epoch': 1,
